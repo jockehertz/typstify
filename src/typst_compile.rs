@@ -141,6 +141,10 @@ fn compile_pdf(input: &str) -> Result<CompileOutput, TypstError> {
 }
 
 fn compile_png(input: &str) -> Result<CompileOutput, TypstError> {
+todo!()
+}
+
+fn compile_svg(input: &str) -> Result<CompileOutput, TypstError> {
     let world = InMemoryWorld::new(input.to_owned());
     let document: PagedDocument = match typst::compile(&world).output {
         Ok(data) => data,
@@ -155,9 +159,6 @@ fn compile_png(input: &str) -> Result<CompileOutput, TypstError> {
     Ok(CompileOutput::Svgs(svgs))
 }
 
-fn compile_svg(input: &str) -> Result<CompileOutput, TypstError> {
-todo!()
-}
 
 pub fn typst_compile(input: &str, output_type: OutputType) -> Result<CompileOutput, TypstError> {
     let output = match output_type {
