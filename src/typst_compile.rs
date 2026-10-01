@@ -94,14 +94,14 @@ impl World for InMemoryWorld {
 }
 
 // collect the output in different types
-enum CompileOutput {
+pub enum CompileOutput {
     Pdf(Vec<u8>),
     Png(Vec<Vec<u8>>),
     Svg(Vec<String>),
 }
 
 // wrap the error from the typst compilation
-enum TypstError {
+pub enum TypstError {
     CompileError(String),
     RenderError,
 }
@@ -115,7 +115,7 @@ fn compile_document(input: &str) -> Result<PagedDocument, TypstError> {
     let world = InMemoryWorld::new(input.to_owned());
     match typst::compile(&world).output {
         Ok(data) => Ok(data),
-        Err(errors) => return Err(TypstError::CompileError(format!("{:#?}", errors))),
+        Err(errors) => Err(TypstError::CompileError(format!("{:#?}", errors))),
     }
 }
 
@@ -123,12 +123,11 @@ fn compile_document(input: &str) -> Result<PagedDocument, TypstError> {
 fn compile_pdf(input: &str) -> Result<CompileOutput, TypstError> {
     let document = compile_document(input)?;
 
-    let pdf = match typst_pdf::pdf(&document, &PdfOptions::default()) {
-        Ok(data) => data,
-        Err(_) => return Err(TypstError::RenderError),
-    };
+    match typst_pdf::pdf(&document, &PdfOptions::default()) {
+        Ok(data) => Ok(CompileOutput::Pdf(data)),
+        Err(_) => Err(TypstError::RenderError),
+    }
 
-    return Ok(CompileOutput::Pdf(pdf));
 }
 
 fn compile_png(input: &str) -> Result<CompileOutput, TypstError> {
