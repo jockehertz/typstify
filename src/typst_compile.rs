@@ -1,29 +1,22 @@
 use crate::OutputType;
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{collections::HashMap, path::PathBuf};
 
 use typst::{
-    foundations::{Bytes, Datetime, Smart},
-    model::Document,
-    utils::LazyHash,
-    Library,
-    LibraryExt,
-    World,
     diag::{FileError, FileResult},
-    syntax::{FileId, Source, VirtualPath, VirtualRoot, RootedPath},
+    foundations::{Bytes, Datetime},
+    syntax::{FileId, RootedPath, Source, VirtualPath, VirtualRoot},
     text::{Font, FontBook},
+    utils::LazyHash,
+    Library, LibraryExt, World,
 };
 
-use typst_layout::PagedDocument;
 use typst_assets;
+use typst_layout::PagedDocument;
 
-use typst_render;
-use typst_pdf::PdfOptions;
-use typst_svg;
 use tiny_skia::Pixmap;
+use typst_pdf::PdfOptions;
+use typst_render;
+use typst_svg;
 
 // import template files
 const PDF_TEMPLATE: &str = include_str!("./assets/pdf.typ");
@@ -81,28 +74,21 @@ impl World for InMemoryWorld {
     }
 
     fn source(&self, id: FileId) -> FileResult<Source> {
-    self.sources
-        .get(&id)
-        .cloned()
-        .ok_or_else(|| missing_file(id))
-    }
-
-    fn file(&self, id: FileId) -> FileResult<Bytes> {
-        self.files
+        self.sources
             .get(&id)
             .cloned()
             .ok_or_else(|| missing_file(id))
     }
 
+    fn file(&self, id: FileId) -> FileResult<Bytes> {
+        self.files.get(&id).cloned().ok_or_else(|| missing_file(id))
+    }
 
     fn font(&self, index: usize) -> Option<typst::text::Font> {
         self.font_data.get(index).cloned()
     }
 
-    fn today(
-        &self,
-        _offset: Option<typst::foundations::Duration>,
-    ) -> Option<Datetime> {
+    fn today(&self, _offset: Option<typst::foundations::Duration>) -> Option<Datetime> {
         None
     }
 }
@@ -111,12 +97,13 @@ impl World for InMemoryWorld {
 enum CompileOutput {
     Pdf(Vec<u8>),
     Png(Vec<Vec<u8>>),
-    Svg(Vec<String>)
+    Svg(Vec<String>),
 }
 
 // wrap the error from the typst compilation
 enum TypstError {
-    CompileError(String)
+    CompileError(String),
+    RenderError,
 }
 
 // helper for "missing" virtual files
@@ -128,7 +115,7 @@ fn compile_document(input: &str) -> Result<PagedDocument, TypstError> {
     let world = InMemoryWorld::new(input.to_owned());
     match typst::compile(&world).output {
         Ok(data) => Ok(data),
-        Err(errors) => return Err(TypstError::CompileError(format!("{:#?}", errors)))
+        Err(errors) => return Err(TypstError::CompileError(format!("{:#?}", errors))),
     }
 }
 
@@ -138,11 +125,10 @@ fn compile_pdf(input: &str) -> Result<CompileOutput, TypstError> {
 
     let pdf = match typst_pdf::pdf(&document, &PdfOptions::default()) {
         Ok(data) => data,
-        Err(_) => return Err(TypstError::CompileError(String::from("Could not compile to PDF"))),
+        Err(_) => return Err(TypstError::RenderError),
     };
 
     return Ok(CompileOutput::Pdf(pdf));
-
 }
 
 fn compile_png(input: &str) -> Result<CompileOutput, TypstError> {
@@ -151,10 +137,11 @@ fn compile_png(input: &str) -> Result<CompileOutput, TypstError> {
     let mut pngs: Vec<Vec<u8>> = vec![];
 
     for page in document.pages() {
-        let this_pixmap: Pixmap = typst_render::render(page, &typst_render::RenderOptions::default());
+        let this_pixmap: Pixmap =
+            typst_render::render(page, &typst_render::RenderOptions::default());
         let this_png: Vec<u8> = match this_pixmap.encode_png() {
             Ok(data) => data,
-            Err(_) => return Err(TypstError::CompileError(String::from("Error generating PNG: Could not generate PNG from pixelmap")))
+            Err(_) => return Err(TypstError::RenderError),
         };
         pngs.push(this_png);
     }
@@ -168,18 +155,22 @@ fn compile_svg(input: &str) -> Result<CompileOutput, TypstError> {
     let mut svgs: Vec<String> = vec![];
     for page in document.pages() {
         svgs.push(typst_svg::svg(page, &typst_svg::SvgOptions::default()));
-    };
+    }
 
     Ok(CompileOutput::Svg(svgs))
 }
 
-
 pub fn typst_compile(input: &str, output_type: OutputType) -> Result<CompileOutput, TypstError> {
+    if input.contains("#import") {
+        return Err(TypstError::CompileError(String::from(
+            "Packages are not supported in this version, #import statements are disallowed.",
+        )));
+    }
     let output = match output_type {
-        OutputType::Pdf => compile_pdf(&format!(PDF_TEMPLATE, content = input)),
-        OutputType::Png => compile_png(&format!(PNG_SVG_TEMPLATE, content = input)),
-        OutputType::Svg => compile_svg(&format!(PNG_SVG_TEMPLATE, content = input)),
+        OutputType::Pdf => compile_pdf(&PDF_TEMPLATE.replace("{content}", input)),
+        OutputType::Png => compile_png(&PNG_SVG_TEMPLATE.replace("{content}", input)),
+        OutputType::Svg => compile_svg(&PNG_SVG_TEMPLATE.replace("{content}", input)),
     };
 
-    return output
+    return output;
 }
