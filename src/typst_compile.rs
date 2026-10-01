@@ -23,6 +23,7 @@ use typst_assets;
 use typst_render;
 use typst_pdf::PdfOptions;
 use typst_svg;
+use tiny_skia::Pixmap;
 
 // import template files
 const PDF_TEMPLATE: &str = include_str!("./assets/pdf.typ");
@@ -109,7 +110,7 @@ impl World for InMemoryWorld {
 // collect the output in different types
 enum CompileOutput {
     Pdf(Vec<u8>),
-    Png(Vec<u8>),
+    Png(Vec<Vec<u8>>),
     Svg(Vec<String>)
 }
 
@@ -123,13 +124,17 @@ fn missing_file(id: FileId) -> FileError {
     FileError::NotFound(PathBuf::from(format!("{id:?}")))
 }
 
+fn compile_document(input: &str) -> Result<PagedDocument, TypstError> {
+    let world = InMemoryWorld::new(input.to_owned());
+    match typst::compile(&world).output {
+        Ok(data) => Ok(data),
+        Err(errors) => return Err(TypstError::CompileError(format!("{:#?}", errors)))
+    }
+}
+
 // compiles an input to a pdf
 fn compile_pdf(input: &str) -> Result<CompileOutput, TypstError> {
-    let world = InMemoryWorld::new(input.to_owned());
-    let document = match typst::compile(&world).output {
-        Ok(data) => data,
-        Err(errors) => return Err(TypstError::CompileError(format!("{:#?}", errors)))
-    };
+    let document = compile_document(input)?;
 
     let pdf = match typst_pdf::pdf(&document, &PdfOptions::default()) {
         Ok(data) => data,
@@ -141,15 +146,24 @@ fn compile_pdf(input: &str) -> Result<CompileOutput, TypstError> {
 }
 
 fn compile_png(input: &str) -> Result<CompileOutput, TypstError> {
-todo!()
+    let document = compile_document(input)?;
+
+    let mut pngs: Vec<Vec<u8>> = vec![];
+
+    for page in document.pages() {
+        let this_pixmap: Pixmap = typst_render::render(&page, &typst_render::RenderOptions::default());
+        let this_png: Vec<u8> = match this_pixmap.encode_png() {
+            Ok(data) => data,
+            Err(_) => return Err(TypstError::CompileError(String::from("Error generating PNG: Could not generate PNG from pixelmap")))
+        };
+        pngs.push(this_png);
+    }
+
+    Ok(CompileOutput::Png(pngs))
 }
 
 fn compile_svg(input: &str) -> Result<CompileOutput, TypstError> {
-    let world = InMemoryWorld::new(input.to_owned());
-    let document: PagedDocument = match typst::compile(&world).output {
-        Ok(data) => data,
-        Err(errors) => return Err(TypstError::CompileError(format!("{:#?}", errors)))
-    };
+    let document = compile_document(input)?;
 
     let mut svgs: Vec<String> = vec![];
     for page in document.pages() {
