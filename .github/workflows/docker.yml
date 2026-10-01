@@ -20,6 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+    - name: Build the Cargo binary
+      run: cargo build --release
     - name: Build the Docker image
       run: docker build . --file Dockerfile --tag typstify:1.0.0
 
