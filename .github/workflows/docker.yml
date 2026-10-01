@@ -6,34 +6,22 @@ on:
   pull_request:
     branches: [ "main" ]
 
+permissions:
+  contents: read
+
 jobs:
 
-  cargo-build:
+  docker-build:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
     - name: Build the Cargo binary
       run: cargo build --release
-
-  docker-build:
-    needs: cargo-build
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
     - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag typstify:1.0.0
-
-  docker-login:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
+      run: docker build . --file Dockerfile --tag typstify:1.0.0 --tag jockehertz/typstify:latest
     - name: Login to Docker
+      if: github.event_name == 'push'
       run: docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PAT }}
-
-  docker-push:
-    needs: [docker-build, docker-login]
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
     - name: Push to Docker Hub
+      if: github.event_name == 'push'
       run: docker push jockehertz/typstify:latest
