@@ -11,4 +11,5 @@ tokio = "1.53.1"
 typst = "0.15.1"
 typst-as-lib = "0.16.0"
 typst-assets = { version = "0.15.1", features = ["fonts"] }
+typst-pdf = "0.15.1"
 typst-render = "0.15.1"
