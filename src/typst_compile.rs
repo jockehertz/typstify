@@ -18,6 +18,7 @@ use typst::{
 };
 
 use typst_layout::PagedDocument;
+use typst_assets;
 
 use typst_render;
 use typst_pdf::PdfOptions;
@@ -30,6 +31,7 @@ const PNG_SVG_TEMPLATE: &str = include_str!("./assets/svg-png.typ");
 struct InMemoryWorld {
     library: LazyHash<Library>,
     fonts: LazyHash<FontBook>,
+    font_data: Vec<Font>,
     main: FileId,
     sources: HashMap<FileId, Source>,
     files: HashMap<FileId, Bytes>,
@@ -46,9 +48,16 @@ impl InMemoryWorld {
         let mut sources = HashMap::new();
         sources.insert(main, Source::new(main, source_text));
 
+        let font_data: Vec<Font> = typst_assets::fonts()
+            .flat_map(|data| Font::iter(Bytes::new(data)))
+            .collect();
+
+        let font_book = FontBook::from_fonts(&font_data);
+
         Self {
             library: LazyHash::new(Library::builder().build()),
-            fonts: LazyHash::new(FontBook::new()),
+            fonts: LazyHash::new(font_book),
+            font_data,
             main,
             sources,
             files: HashMap::new(),
@@ -84,8 +93,8 @@ impl World for InMemoryWorld {
     }
 
 
-    fn font(&self, _index: usize) -> Option<typst::text::Font> {
-        None
+    fn font(&self, index: usize) -> Option<typst::text::Font> {
+        self.font_data.get(index).cloned()
     }
 
     fn today(
@@ -96,43 +105,49 @@ impl World for InMemoryWorld {
     }
 }
 
-
+// collect the output in different types
 enum CompileOutput<'a> {
     Pdf(Vec<u8>),
     Png(Vec<u8>),
     Svg(&'a str)
 }
 
+// wrap the error from the typst compilation
 enum TypstError {
     CompileError(String)
 }
 
-
+// helper for "missing" virtual files
 fn missing_file(id: FileId) -> FileError {
     FileError::NotFound(PathBuf::from(format!("{id:?}")))
 }
 
-fn compile_pdf(input: &str) -> Result<CompileOutput, String> {
+// compiles an input to a pdf
+fn compile_pdf(input: &str) -> Result<CompileOutput, TypstError> {
     let world = InMemoryWorld::new(input.to_owned());
-    let document = typst::compile(&world)
-        .output
-        .map_err(|errors| format!("{errors:#?}"))?;
+    let document = match typst::compile(&world).output {
+        Ok(data) => data,
+        Err(errors) => return Err(TypstError::CompileError(format!("{:#?}", errors)))
+    };
 
-    let pdf = typst_pdf::pdf(&document, &PdfOptions::default()).map_err(|_| format!("Error compiling to PDF"))?;
+    let pdf = match typst_pdf::pdf(&document, &PdfOptions::default()) {
+        Ok(data) => data,
+        Err(_) => return Err(TypstError::CompileError(String::from("Could not compile to PDF"))),
+    };
 
     return Ok(CompileOutput::Pdf(pdf));
 
 }
 
-fn compile_png(input: &str) -> CompileOutput {
+fn compile_png(input: &str) -> Result<CompileOutput, TypstError> {
 todo!()
 }
 
-fn compile_svg(input: &str) -> CompileOutput {
+fn compile_svg(input: &str) -> Result<CompileOutput, TypstError> {
 todo!()
 }
 
-pub fn typst_compile(input: &str, output_type: OutputType) -> CompileOutput {
+pub fn typst_compile(input: &str, output_type: OutputType) -> Result<CompileOutput, TypstError> {
     let output = match output_type {
         OutputType::Pdf => compile_pdf(&format!(PDF_TEMPLATE, content = input)),
         OutputType::Png => compile_png(&format!(PNG_SVG_TEMPLATE, content = input)),
