@@ -151,7 +151,7 @@ fn compile_png(input: &str) -> Result<CompileOutput, TypstError> {
     let mut pngs: Vec<Vec<u8>> = vec![];
 
     for page in document.pages() {
-        let this_pixmap: Pixmap = typst_render::render(&page, &typst_render::RenderOptions::default());
+        let this_pixmap: Pixmap = typst_render::render(page, &typst_render::RenderOptions::default());
         let this_png: Vec<u8> = match this_pixmap.encode_png() {
             Ok(data) => data,
             Err(_) => return Err(TypstError::CompileError(String::from("Error generating PNG: Could not generate PNG from pixelmap")))
