@@ -22,6 +22,7 @@ use typst_assets;
 
 use typst_render;
 use typst_pdf::PdfOptions;
+use typst_svg;
 
 // import template files
 const PDF_TEMPLATE: &str = include_str!("./assets/pdf.typ");
@@ -106,10 +107,10 @@ impl World for InMemoryWorld {
 }
 
 // collect the output in different types
-enum CompileOutput<'a> {
+enum CompileOutput {
     Pdf(Vec<u8>),
     Png(Vec<u8>),
-    Svg(&'a str)
+    Svgs(Vec<String>)
 }
 
 // wrap the error from the typst compilation
@@ -140,7 +141,18 @@ fn compile_pdf(input: &str) -> Result<CompileOutput, TypstError> {
 }
 
 fn compile_png(input: &str) -> Result<CompileOutput, TypstError> {
-todo!()
+    let world = InMemoryWorld::new(input.to_owned());
+    let document: PagedDocument = match typst::compile(&world).output {
+        Ok(data) => data,
+        Err(errors) => return Err(TypstError::CompileError(format!("{:#?}", errors)))
+    };
+
+    let mut svgs: Vec<String> = vec![];
+    for page in document.pages() {
+        svgs.push(typst_svg::svg(page, &typst_svg::SvgOptions::default()));
+    };
+
+    Ok(CompileOutput::Svgs(svgs))
 }
 
 fn compile_svg(input: &str) -> Result<CompileOutput, TypstError> {
