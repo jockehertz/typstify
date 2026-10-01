@@ -1,5 +1,5 @@
 FROM alpine:latest
 
-COPY /target/release/typstify ./typstify
+COPY ./target/release/typstify ./typstify
 
 CMD ./typstify
