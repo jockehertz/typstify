@@ -110,7 +110,7 @@ impl World for InMemoryWorld {
 enum CompileOutput {
     Pdf(Vec<u8>),
     Png(Vec<u8>),
-    Svgs(Vec<String>)
+    Svg(Vec<String>)
 }
 
 // wrap the error from the typst compilation
@@ -156,7 +156,7 @@ fn compile_svg(input: &str) -> Result<CompileOutput, TypstError> {
         svgs.push(typst_svg::svg(page, &typst_svg::SvgOptions::default()));
     };
 
-    Ok(CompileOutput::Svgs(svgs))
+    Ok(CompileOutput::Svg(svgs))
 }
 
 
