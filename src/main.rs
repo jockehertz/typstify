@@ -1,13 +1,6 @@
 mod typst_compile;
 
 use poise::serenity_prelude as serenity;
-
-
-
-
-mod typst_compile;
-
-use poise::serenity_prelude as serenity;
 use tokio;
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
@@ -60,6 +53,15 @@ async fn math(
     .await
 }
 
+<<<<<<< HEAD
+=======
+#[poise::command(slash_command)]
+async fn hello(ctx: Context<'_>) -> Result<(), Error> {
+    ctx.say("hello").await?;
+    Ok(())
+}
+
+>>>>>>> 55f9045 (i dont even remember what this does)
 async fn process_typst_request(
     ctx: Context<'_>,
     code: Option<String>,
@@ -76,7 +78,15 @@ async fn process_typst_request(
         }
 
         Err(typst_compile::TypstError::CompileError(message)) => {
+<<<<<<< HEAD
             ctx.say(format!("```text\n{message}\n```")).await?;
+=======
+            ctx.say(format!("```Error:\n{message}\n```")).await?;
+        }
+
+        Err(typst_compile::TypstError::RenderError) => {
+            ctx.say("The render failed").await?;
+>>>>>>> 55f9045 (i dont even remember what this does)
         }
     }
 
@@ -85,6 +95,29 @@ async fn process_typst_request(
 
 #[tokio::main]
 async fn main() -> () {
+<<<<<<< HEAD
 
 
+=======
+    let token = std::env::var("DISCORD_TOKEN").expect("missing DISCORD_TOKEN");
+    let intents = serenity::GatewayIntents::non_privileged();
+
+    let framework = poise::Framework::builder()
+        .options(poise::FrameworkOptions {
+            commands: vec![typst(), math(), hello()],
+            ..Default::default()
+        })
+        .setup(|ctx, _ready, framework| {
+            Box::pin(async move {
+                poise::builtins::register_globally(ctx, &framework.options().commands).await?;
+                Ok(Data {})
+            })
+        })
+        .build();
+
+    let client = serenity::ClientBuilder::new(token, intents)
+        .framework(framework)
+        .await;
+    client.unwrap().start().await.unwrap();
+>>>>>>> 55f9045 (i dont even remember what this does)
 }
