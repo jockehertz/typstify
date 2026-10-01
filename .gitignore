@@ -1,5 +1,2 @@
-<<<<<<< HEAD
-/target
-=======
 target/
->>>>>>> 55f9045 (i dont even remember what this does)
+.env
