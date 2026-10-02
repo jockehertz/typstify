@@ -22,6 +22,9 @@ use typst_svg;
 const PDF_TEMPLATE: &str = include_str!("./assets/pdf.typ");
 const PNG_SVG_TEMPLATE: &str = include_str!("./assets/svg-png.typ");
 
+// this is a multiplier (*72)
+const PNG_PIXELS_PER_PT: f64 = 2.0;
+
 // a barebones world struct
 struct InMemoryWorld {
     library: LazyHash<Library>,
@@ -136,8 +139,12 @@ fn compile_png(input: &str) -> Result<CompileOutput, TypstError> {
     let mut pngs: Vec<Vec<u8>> = vec![];
 
     for page in document.pages() {
+        let render_options = typst_render::RenderOptions {
+            pixel_per_pt: typst::utils::Scalar::new(PNG_PIXELS_PER_PT),
+            ..Default::default()
+        };
         let this_pixmap: Pixmap =
-            typst_render::render(page, &typst_render::RenderOptions::default());
+            typst_render::render(page, &render_options);
         let this_png: Vec<u8> = match this_pixmap.encode_png() {
             Ok(data) => data,
             Err(_) => return Err(TypstError::RenderError),
